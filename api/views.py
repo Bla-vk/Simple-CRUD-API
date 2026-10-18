@@ -4,11 +4,11 @@ from .models import Item, Location
 from .serializers import ItemSerializer, LocationSerializer
 
 
-class itemList(generics.ListCreateAPIView):
+class ItemList(generics.ListCreateAPIView):
     serializer_class = ItemSerializer
 
     def get_queryset(self):
-        queryset = Item.objects.all()
+        queryset = Item.objects.all().order_by("id")
         location = self.request.query_params.get("location")
         if location is not None:
             queryset = queryset.filter(itemLocation=location)
@@ -22,7 +22,7 @@ class ItemDetail(generics.RetrieveUpdateDestroyAPIView):
 
 class LocationList(generics.ListCreateAPIView):
     serializer_class = LocationSerializer
-    queryset = Location.objects.all()
+    queryset = Location.objects.all().order_by("id")
 
 
 class LocationDetail(generics.RetrieveUpdateDestroyAPIView):
