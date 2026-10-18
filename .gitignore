@@ -1,6 +1,4 @@
-pro
 __pycache__/
 *.sqlite3
 .env
 .venv/
-.env.example
