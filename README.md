@@ -112,7 +112,7 @@ A missing required field returns `400`:
 
 ## Getting Started
 
-You need Python 3 and Git.
+You need Python 3.12 and Git.
 
 ```bash
 git clone https://github.com/Bla-vk/Simple-CRUD-API.git
