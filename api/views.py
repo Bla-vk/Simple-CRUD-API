@@ -27,4 +27,4 @@ class LocationList(generics.ListCreateAPIView):
 
 class LocationDetail(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = LocationSerializer
-    queryset = Location.objects.all()
+    queryset = Location.objects.all().order_by("id")
