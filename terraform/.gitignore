@@ -1,7 +1,10 @@
 .terraform/
 *.tfstate
 *.tfstate.*
+Locked files (Optional: .terraform.lock.hcl can be committed for applications/production to lock provider versions, but often ignored in library modules)
+# .terraform.lock.hcl
 *.tfvars
+*.tfplan
 !terraform.tfvars.example
 crash.log
 .env
