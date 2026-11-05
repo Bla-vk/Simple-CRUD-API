@@ -1,0 +1,4 @@
+# Copy to terraform.tfvars (which is git-ignored) and edit.
+aws_profile = "vscode"
+image_tag   = "v1"
+# allowed_cidrs = ["203.0.113.10/32"]   # leave out to use your current IP automatically
