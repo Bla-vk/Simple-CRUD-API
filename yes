@@ -1,0 +1,97 @@
+{
+    "task": {
+        "attachments": [
+            {
+                "id": "6d1eca91-bc2a-43e9-9eaa-3a73414b0f72",
+                "type": "ElasticNetworkInterface",
+                "status": "ATTACHED",
+                "details": [
+                    {
+                        "name": "subnetId",
+                        "value": "subnet-08d453acc4394a3a8"
+                    },
+                    {
+                        "name": "networkInterfaceId",
+                        "value": "eni-02d2d269eb7ce5f51"
+                    },
+                    {
+                        "name": "macAddress",
+                        "value": "06:ff:ee:8e:05:d3"
+                    },
+                    {
+                        "name": "privateDnsName",
+                        "value": "ip-10-20-0-178.eu-west-2.compute.internal"
+                    },
+                    {
+                        "name": "privateIPv4Address",
+                        "value": "10.20.0.178"
+                    }
+                ]
+            }
+        ],
+        "attributes": [
+            {
+                "name": "ecs.cpu-architecture",
+                "value": "x86_64"
+            }
+        ],
+        "availabilityZone": "eu-west-2a",
+        "clusterArn": "arn:aws:ecs:eu-west-2:498202685460:cluster/simple-crud-api-cluster",
+        "connectivity": "CONNECTED",
+        "connectivityAt": "2026-11-06T08:40:38.325000+01:00",
+        "containers": [
+            {
+                "containerArn": "arn:aws:ecs:eu-west-2:498202685460:container/simple-crud-api-cluster/be7245bb531c46c5b686012ddc8814d7/75e28f9d-8f8d-41de-a586-02a7eda3c4a0",
+                "taskArn": "arn:aws:ecs:eu-west-2:498202685460:task/simple-crud-api-cluster/be7245bb531c46c5b686012ddc8814d7",
+                "name": "app",
+                "image": "498202685460.dkr.ecr.eu-west-2.amazonaws.com/simple-crud-api:v1",
+                "imageDigest": "sha256:5ee6bb3e1d31af5d7e41ae757c7d1679756022998ef7186f7402da995f45460a",
+                "runtimeId": "be7245bb531c46c5b686012ddc8814d7-0527074092",
+                "lastStatus": "RUNNING",
+                "networkBindings": [],
+                "networkInterfaces": [
+                    {
+                        "attachmentId": "6d1eca91-bc2a-43e9-9eaa-3a73414b0f72",
+                        "privateIpv4Address": "10.20.0.178"
+                    }
+                ],
+                "cpu": "0"
+            }
+        ],
+        "cpu": "256",
+        "createdAt": "2026-11-06T08:40:35.260000+01:00",
+        "desiredStatus": "STOPPED",
+        "enableExecuteCommand": false,
+        "group": "service:simple-crud-api-service",
+        "lastStatus": "DEACTIVATING",
+        "launchType": "FARGATE",
+        "memory": "512",
+        "overrides": {
+            "containerOverrides": [
+                {
+                    "name": "app"
+                }
+            ],
+            "inferenceAcceleratorOverrides": []
+        },
+        "platformVersion": "1.4.0",
+        "platformFamily": "Linux",
+        "pullStartedAt": "2026-11-06T08:40:46.425000+01:00",
+        "pullStoppedAt": "2026-11-06T08:41:08.989000+01:00",
+        "startedAt": "2026-11-06T08:41:17.531000+01:00",
+        "startedBy": "ecs-svc/4558667627744549275",
+        "stopCode": "UserInitiated",
+        "stoppedReason": "resilience test",
+        "stoppingAt": "2026-11-06T09:26:37.263000+01:00",
+        "tags": [],
+        "taskArn": "arn:aws:ecs:eu-west-2:498202685460:task/simple-crud-api-cluster/be7245bb531c46c5b686012ddc8814d7",
+        "taskDefinitionArn": "arn:aws:ecs:eu-west-2:498202685460:task-definition/simple-crud-api:1",
+        "version": 6,
+        "ephemeralStorage": {
+            "sizeInGiB": 20
+        },
+        "fargateEphemeralStorage": {
+            "sizeInGiB": 20
+        }
+    }
+}
