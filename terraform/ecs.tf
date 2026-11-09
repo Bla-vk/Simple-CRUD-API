@@ -78,4 +78,11 @@ resource "aws_ecs_service" "app" {
   }
 
   depends_on = [aws_lb_listener.http]
+
+  # The GitHub Actions deploy workflow registers new task definition revisions and
+  # points the service at them. Without this, the next terraform apply would
+  # switch the service back to the revision Terraform created.
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
 }

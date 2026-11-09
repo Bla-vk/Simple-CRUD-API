@@ -1,0 +1,104 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "terraform/**"
+      - "github-oidc/**"
+  workflow_dispatch:
+
+permissions:
+  id-token: write # lets the job request an OIDC token for AWS
+  contents: read
+
+# Never run two deployments at once, and never cancel one half way through.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-west-2
+  ECR_REPOSITORY: simple-crud-api
+  ECS_CLUSTER: simple-crud-api-cluster
+  ECS_SERVICE: simple-crud-api-service
+  TASK_FAMILY: simple-crud-api
+  CONTAINER_NAME: app
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: build, push and deploy
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Check that the ECS service is running
+        run: |
+          STATUS=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0].status' --output text 2>/dev/null || true)
+          if [ "$STATUS" != "ACTIVE" ]; then
+            echo "::error::Service $ECS_SERVICE is not ACTIVE (status: ${STATUS:-not found}). Run terraform apply first."
+            exit 1
+          fi
+
+      - name: Log in to ECR
+        id: login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push the image
+        id: build
+        env:
+          REGISTRY: ${{ steps.login.outputs.registry }}
+        run: |
+          TAG="${GITHUB_SHA::7}"
+          IMAGE="$REGISTRY/$ECR_REPOSITORY:$TAG"
+
+          # ECR tags are immutable, so skip the push if this commit was already built.
+          if aws ecr describe-images --repository-name "$ECR_REPOSITORY" \
+               --image-ids imageTag="$TAG" > /dev/null 2>&1; then
+            echo "Image tag $TAG already exists in ECR, skipping the push"
+          else
+            # --provenance=false pushes a single image that ECR can scan
+            docker build --platform linux/amd64 --provenance=false -t "$IMAGE" .
+            docker push "$IMAGE"
+          fi
+
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Get the current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "$TASK_FAMILY" \
+            --query taskDefinition > task-definition.json
+
+      - name: Put the new image into the task definition
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build.outputs.image }}
+
+      - name: Deploy to ECS and wait until it is stable
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Summary
+        run: echo "Deployed image tag \`${{ steps.build.outputs.tag }}\` to \`$ECS_SERVICE\`" >> "$GITHUB_STEP_SUMMARY"

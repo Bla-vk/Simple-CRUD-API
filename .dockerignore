@@ -7,3 +7,5 @@ __pycache__/
 .git/
 .github/
 .gitignore
+github-oidc/
+*.md
