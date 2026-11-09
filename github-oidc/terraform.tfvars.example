@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars only if you need to change a default.
+# aws_profile          = "vscode"
+# github_owner         = "Bla-vk"
+# github_repo          = "Simple-CRUD-API"
+# github_branch        = "main"
+# create_oidc_provider = true   # set to false if the GitHub OIDC provider already exists in the account
