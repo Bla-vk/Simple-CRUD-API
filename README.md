@@ -1,3 +1,5 @@
+[![CI](https://github.com/Bla-vk/Simple-CRUD-API/actions/workflows/ci.yml/badge.svg)](https://github.com/Bla-vk/Simple-CRUD-API/actions/workflows/ci.yml)
+
 # Simple CRUD API on AWS ECS Fargate (Terraform)
 
 ![Terraform](https://img.shields.io/badge/Terraform-844FBA?style=flat&logo=terraform&logoColor=white)
@@ -45,16 +47,16 @@ Tasks run in public subnets with public IPs, so no NAT gateway is needed. The ta
 
 ## What Terraform creates
 
-| File | Resources |
-|---|---|
-| `network.tf` | VPC (`10.20.0.0/16`), internet gateway, 2 public subnets in 2 AZs, route table, lookup of my public IP |
+| File          | Resources                                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `network.tf`  | VPC (`10.20.0.0/16`), internet gateway, 2 public subnets in 2 AZs, route table, lookup of my public IP              |
 | `security.tf` | Load balancer security group (port 80 from my IP only), task security group (port 8000 from the load balancer only) |
-| `ecr.tf` | ECR repository (immutable tags, scan on push, keeps the last 5 images) |
-| `secrets.tf` | A random 64-character Django secret key stored in Secrets Manager |
-| `iam.tf` | Execution role (pulls the image, writes logs, reads the secret) and an empty task role |
-| `logs.tf` | CloudWatch log group, 7-day retention |
-| `alb.tf` | Load balancer, target group checking `/api/v1/locations/`, HTTP listener |
-| `ecs.tf` | Cluster, Fargate task definition, service with a deployment circuit breaker |
+| `ecr.tf`      | ECR repository (immutable tags, scan on push, keeps the last 5 images)                                              |
+| `secrets.tf`  | A random 64-character Django secret key stored in Secrets Manager                                                   |
+| `iam.tf`      | Execution role (pulls the image, writes logs, reads the secret) and an empty task role                              |
+| `logs.tf`     | CloudWatch log group, 7-day retention                                                                               |
+| `alb.tf`      | Load balancer, target group checking `/api/v1/locations/`, HTTP listener                                            |
+| `ecs.tf`      | Cluster, Fargate task definition, service with a deployment circuit breaker                                         |
 
 The full `terraform apply` created **28 resources**, plus the ECR repository created beforehand, so `terraform destroy` removed **29**.
 
@@ -362,30 +364,30 @@ terraform destroy
 
 ## Results summary
 
-| What I tested | Result |
-|---|---|
-| `terraform validate` | Configuration valid |
-| Image pushed to ECR (`v1`) | Scan on push: 0 critical, 4 high, 9 medium, 3 low findings (ECR basic scanning, base image not patched) |
-| ECS service | `ACTIVE`, 1 running of 1 desired, deployment status Success |
-| Target group | 1 target, `healthy` on port 8000 |
-| Secret key | Read from Secrets Manager (`valueFrom`), no value in the code or the task definition |
-| API through the load balancer | Create, list, filter, `PATCH` and delete (204) work, including pagination (26 items, `next` link) and the duplicate-name validation error |
-| Direct request to the task's public IP on port 8000 | Timed out, so the load balancer is the only way in |
-| Stopped the running task | ECS started a replacement and the service returned to 1/1 running |
-| Rolled out image tag `v2` | Task definition revision 2, old and new tasks ran side by side, old task drained, circuit breaker 0/3 failed tasks |
-| `terraform destroy` | 29 resources destroyed, including the ECR repository and its images |
+| What I tested                                       | Result                                                                                                                                    |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `terraform validate`                                | Configuration valid                                                                                                                       |
+| Image pushed to ECR (`v1`)                          | Scan on push: 0 critical, 4 high, 9 medium, 3 low findings (ECR basic scanning, base image not patched)                                   |
+| ECS service                                         | `ACTIVE`, 1 running of 1 desired, deployment status Success                                                                               |
+| Target group                                        | 1 target, `healthy` on port 8000                                                                                                          |
+| Secret key                                          | Read from Secrets Manager (`valueFrom`), no value in the code or the task definition                                                      |
+| API through the load balancer                       | Create, list, filter, `PATCH` and delete (204) work, including pagination (26 items, `next` link) and the duplicate-name validation error |
+| Direct request to the task's public IP on port 8000 | Timed out, so the load balancer is the only way in                                                                                        |
+| Stopped the running task                            | ECS started a replacement and the service returned to 1/1 running                                                                         |
+| Rolled out image tag `v2`                           | Task definition revision 2, old and new tasks ran side by side, old task drained, circuit breaker 0/3 failed tasks                        |
+| `terraform destroy`                                 | 29 resources destroyed, including the ECR repository and its images                                                                       |
 
 ## Problems I hit and how I fixed them
 
-| Problem | Cause and fix |
-|---|---|
-| Container crashed with `ModuleNotFoundError: pkg_resources` | gunicorn 20.1.0 needs `pkg_resources`, which newer setuptools removed. Upgraded to `gunicorn==23.0.0`. |
-| ECR showed "Scan not found" | Docker's buildx pushes an image index plus an attestation manifest, and ECR cannot scan an index. The scan result is on the child image, and building with `--provenance=false` pushes a single scannable image. |
-| Re-pushing the same tag was rejected | The repository has immutable tags on purpose, so every release gets a new tag. |
-| Health check would fail with `Invalid HTTP_HOST header` | The load balancer sends the task's private IP as the Host header, so `DJANGO_ALLOWED_HOSTS` is `*` in the task definition. Safe here because only my IP can reach the load balancer. |
-| Docker login failed with a credential helper error | Used a clean `DOCKER_CONFIG` directory for the ECR login instead of the broken helper. |
-| `docker push` timed out on a large layer | Pushes resume, so I ran the same command again. |
-| `curl: Could not resolve host` after opening a new terminal | Shell variables like `$ALB` do not survive a new terminal. Re-read them from `terraform output`. |
+| Problem                                                     | Cause and fix                                                                                                                                                                                                    |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Container crashed with `ModuleNotFoundError: pkg_resources` | gunicorn 20.1.0 needs `pkg_resources`, which newer setuptools removed. Upgraded to `gunicorn==23.0.0`.                                                                                                           |
+| ECR showed "Scan not found"                                 | Docker's buildx pushes an image index plus an attestation manifest, and ECR cannot scan an index. The scan result is on the child image, and building with `--provenance=false` pushes a single scannable image. |
+| Re-pushing the same tag was rejected                        | The repository has immutable tags on purpose, so every release gets a new tag.                                                                                                                                   |
+| Health check would fail with `Invalid HTTP_HOST header`     | The load balancer sends the task's private IP as the Host header, so `DJANGO_ALLOWED_HOSTS` is `*` in the task definition. Safe here because only my IP can reach the load balancer.                             |
+| Docker login failed with a credential helper error          | Used a clean `DOCKER_CONFIG` directory for the ECR login instead of the broken helper.                                                                                                                           |
+| `docker push` timed out on a large layer                    | Pushes resume, so I ran the same command again.                                                                                                                                                                  |
+| `curl: Could not resolve host` after opening a new terminal | Shell variables like `$ALB` do not survive a new terminal. Re-read them from `terraform output`.                                                                                                                 |
 
 ## Known limits
 
