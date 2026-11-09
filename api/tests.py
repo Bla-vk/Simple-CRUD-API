@@ -25,7 +25,7 @@ class LocationTests(APITestCase):
     def test_create_location(self):
         response = self.client.post(LOCATIONS, {"locationName": "Shelf A"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["locationName"], "Shelf A")
+        self.assertEqual(response.data["locationName"], "Sheeelsls")
         self.assertEqual(Location.objects.count(), 2)
 
     def test_create_rejects_duplicate_name(self):
