@@ -411,10 +411,38 @@ The trust policy only accepts tokens from this repository's `main` branch. Pull 
 
 The load balancer only accepts my own IP, so the pipeline cannot call the API itself. It treats `wait-for-service-stability` as the success check.
 
+### CI in action
+
+Every pull request runs the 36 tests. I broke one test on purpose on a branch to prove the check can fail: the `test` job went red and `docker-build` was skipped, and the pull request showed "Some checks were not successful".
+
+![Pull request with a failing check](screenshots/48-ci-red-pull-request.png)
+
+![The failed CI run](screenshots/49-ci-red-run.png)
+
+I did not merge the broken change, so `main` stayed green. The run history shows the red pull request run between the green runs on `main`.
+
+![CI run history](screenshots/50-ci-run-history.png)
+
+### First deploy: the permission I missed
+
+The first Deploy run logged in with OIDC, built the image and uploaded every layer, then failed at the very end with `403 Forbidden`. The deploy role was missing `ecr:BatchGetImage` and `ecr:GetDownloadUrlForLayer`, which Docker uses to check the manifest after the upload. I added both to the role policy in `github-oidc/main.tf`, applied it and re-ran the workflow.
+
+![Deploy failed with 403 Forbidden](screenshots/51-deploy-ecr-403.png)
+
+### Deploy succeeded
+
+After the fix, I re-ran the Deploy workflow on `main` by hand (the workflow also has a manual trigger). It tested, built, pushed and deployed. The job summary shows the commit SHA tag it deployed, and the run waited until the ECS service was stable.
+
+![Deploy run history](screenshots/52-deploy-run-history.png)
+
+![Successful Deploy run](screenshots/53-deploy-success.png)
+
 ### Limits of the pipeline
 
 - The ECS stack must be running. If it has been destroyed, the Deploy workflow stops at its first check with a message to run `terraform apply`.
 - Only the image changes. Infrastructure changes still go through `terraform apply`.
+- Rollback is handled by the circuit breaker from Step 11. I have not yet tested a failing deploy through the pipeline.
+- The successful Deploy run in the screenshots was started by hand after the permission fix. I have not yet captured a deploy that starts from a merge alone.
 
 ## Results summary
 
@@ -429,19 +457,25 @@ The load balancer only accepts my own IP, so the pipeline cannot call the API it
 | Direct request to the task's public IP on port 8000 | Timed out, so the load balancer is the only way in                                                                                        |
 | Stopped the running task                            | ECS started a replacement and the service returned to 1/1 running                                                                         |
 | Rolled out image tag `v2`                           | Task definition revision 2, old and new tasks ran side by side, old task drained, circuit breaker 0/3 failed tasks                        |
+| CI on a pull request with a broken test             | `test` job failed, `docker-build` skipped, pull request showed a failed check                                                             |
+| CI on `main`                                        | All checks green                                                                                                                          |
+| Deploy workflow on `main` (commit `392d7d4`)        | Tests, image build and push to ECR, then ECS deployed the commit SHA tag and the run waited for the service to be stable                  |
 | `terraform destroy`                                 | 29 resources destroyed, including the ECR repository and its images                                                                       |
 
 ## Problems I hit and how I fixed them
 
-| Problem                                                     | Cause and fix                                                                                                                                                                                                    |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Container crashed with `ModuleNotFoundError: pkg_resources` | gunicorn 20.1.0 needs `pkg_resources`, which newer setuptools removed. Upgraded to `gunicorn==23.0.0`.                                                                                                           |
-| ECR showed "Scan not found"                                 | Docker's buildx pushes an image index plus an attestation manifest, and ECR cannot scan an index. The scan result is on the child image, and building with `--provenance=false` pushes a single scannable image. |
-| Re-pushing the same tag was rejected                        | The repository has immutable tags on purpose, so every release gets a new tag.                                                                                                                                   |
-| Health check would fail with `Invalid HTTP_HOST header`     | The load balancer sends the task's private IP as the Host header, so `DJANGO_ALLOWED_HOSTS` is `*` in the task definition. Safe here because only my IP can reach the load balancer.                             |
-| Docker login failed with a credential helper error          | Used a clean `DOCKER_CONFIG` directory for the ECR login instead of the broken helper.                                                                                                                           |
-| `docker push` timed out on a large layer                    | Pushes resume, so I ran the same command again.                                                                                                                                                                  |
-| `curl: Could not resolve host` after opening a new terminal | Shell variables like `$ALB` do not survive a new terminal. Re-read them from `terraform output`.                                                                                                                 |
+| Problem                                                      | Cause and fix                                                                                                                                                                                                    |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Container crashed with `ModuleNotFoundError: pkg_resources`  | gunicorn 20.1.0 needs `pkg_resources`, which newer setuptools removed. Upgraded to `gunicorn==23.0.0`.                                                                                                           |
+| ECR showed "Scan not found"                                  | Docker's buildx pushes an image index plus an attestation manifest, and ECR cannot scan an index. The scan result is on the child image, and building with `--provenance=false` pushes a single scannable image. |
+| Re-pushing the same tag was rejected                         | The repository has immutable tags on purpose, so every release gets a new tag.                                                                                                                                   |
+| Health check would fail with `Invalid HTTP_HOST header`      | The load balancer sends the task's private IP as the Host header, so `DJANGO_ALLOWED_HOSTS` is `*` in the task definition. Safe here because only my IP can reach the load balancer.                             |
+| Docker login failed with a credential helper error           | Used a clean `DOCKER_CONFIG` directory for the ECR login instead of the broken helper.                                                                                                                           |
+| `docker push` timed out on a large layer                     | Pushes resume, so I ran the same command again.                                                                                                                                                                  |
+| `curl: Could not resolve host` after opening a new terminal  | Shell variables like `$ALB` do not survive a new terminal. Re-read them from `terraform output`.                                                                                                                 |
+| Deploy failed with `403 Forbidden` after the layers uploaded | The deploy role lacked `ecr:BatchGetImage` and `ecr:GetDownloadUrlForLayer`. Added both to the role policy and re-ran.                                                                                           |
+| Deploy stopped with "Service is not ACTIVE"                  | The ECS stack had been destroyed. The workflow checks this first and fails with a clear message, so I ran `terraform apply` and re-ran it.                                                                       |
+| `terraform plan` wanted to replace a security group rule     | My public IP had changed, and Terraform looks it up on every run. Applying updates the load balancer rule to the new address.                                                                                    |
 
 ## Known limits
 
